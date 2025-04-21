@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>جادوی ماتریسی - نسخه کامل</title>
+  <style>
+    @font-face {
+      font-family: 'Vazir';
+      src: url('https://cdn.fontcdn.ir/Font/Persian/Vazir/Vazir.woff2') format('woff2');
+    }
+
+    :root {
+      --current: #4CAF50;
+      --previous: #2196F3;
+      --path-past: #E91E63;
+      --path-future: #9C27B0;
+      --reset: #f44336;
+      --background: #1a1a1a;
+      --text: #e0e0e0;
+    }
+
+    body {
+      background: var(--background);
+      color: var(--text);
+      text-align: center;
+      font-family: 'Vazir', sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+
+    input, button {
+      padding: 12px 24px;
+      border-radius: 25px;
+      border: none;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    input {
+      width: 120px;
+      background: #333;
+      color: var(--text);
+    }
+
+    button {
+      color: white;
+      cursor: pointer;
+    }
+
+    #startBtn { background: #4CAF50; }
+    #resetBtn { background: var(--reset); }
+
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    canvas {
+      background: #2a2a2a;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      margin: 20px 0;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 20px auto;
+      max-width: 500px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.9em;
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔮 ماتریس جادویی پیشرفته</h1>
+    <div class="controls">
+      <input type="number" id="matrixSize" placeholder="عدد فرد ≥ 3" min="3" step="2" value="5">
+      <button onclick="startMagicSquare()" id="startBtn">شروع سحر 🔥</button>
+      <button onclick="confirmReset()" id="resetBtn">بازنشانی ⚠️</button>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background: #FFC107"></div>
+        <span>شروع (عدد 1)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #4CAF50"></div>
+        <span>موقعیت فعلی</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #2196F3"></div>
+        <span>موقعیت قبلی</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #E91E63"></div>
+        <span>مسیر قبلی</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #9C27B0"></div>
+        <span>مسیر بعدی</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #FF8C00"></div>
+        <span>عدد آخر</span>
+      </div>
+    </div>
+
+    <canvas id="magicCanvas"></canvas>
+  </div>
+
+  <script>
+    let history = [];
+    let currentStep = 0;
+    let animationId;
+    let canvas, ctx;
+    let n = 5;
+    let cellSize;
+    let speed = 500;
+
+    function initCanvas() {
+      canvas = document.getElementById("magicCanvas");
+      ctx = canvas.getContext("2d");
+      canvas.width = Math.min(window.innerWidth - 40, 600);
+      canvas.height = canvas.width;
+      cellSize = canvas.width / n;
+    }
+
+    function startMagicSquare() {
+      const inputEl = document.getElementById("matrixSize");
+      const input = inputEl.value;
+
+      if (!input || isNaN(input)) {
+        alert("لطفاً یک عدد صحیح وارد کنید");
+        return;
+      }
+
+      n = parseInt(input);
+
+      if (n < 3) {
+        alert("لطفاً عددی بزرگتر و مساوی عدد ۳ وارد کنید");
+        return;
+      }
+
+      if (n % 2 === 0) {
+        alert("لطفاً اعداد فرد وارد کنید");
+        return;
+      }
+
+      speed = Math.max(50, 800 - (n * 30));
+      initCanvas();
+      generateMagicSquare();
+    }
+
+    function generateMagicSquare() {
+      history = [];
+      let matrix = Array(n).fill().map(() => Array(n).fill(0));
+      let i = 0, j = Math.floor(n / 2);
+      let step = 1;
+
+      while (step <= n * n) {
+        matrix[i][j] = step;
+        const prevPos = history.length > 0 ? history[history.length - 1] : null;
+
+        history.push({
+          position: { i, j },
+          number: step,
+          previous: prevPos ? { ...prevPos.position } : null,
+          next: null
+        });
+
+        if (prevPos) prevPos.next = { i, j };
+
+        const nextI = (i - 1 + n) % n;
+        const nextJ = (j + 1) % n;
+
+        if (matrix[nextI][nextJ] !== 0) {
+          i = (i + 1) % n;
+        } else {
+          i = nextI;
+          j = nextJ;
+        }
+        step++;
+      }
+
+      currentStep = 0;
+      animate();
+    }
+
+    function animate() {
+      if (currentStep >= history.length) return;
+
+      const current = history[currentStep];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      if (current.previous) {
+        drawArrow(current.previous.j, current.previous.i, current.position.j, current.position.i, '#E91E63');
+      }
+      if (current.next) {
+        drawArrow(current.position.j, current.position.i, current.next.j, current.next.i, '#9C27B0');
+      }
+
+      highlightCells(current);
+      drawNumbers(currentStep);
+
+      currentStep++;
+      animationId = setTimeout(animate, speed);
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = '#3a3a3a';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= n; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * cellSize, 0);
+        ctx.lineTo(i * cellSize, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellSize);
+        ctx.lineTo(canvas.width, i * cellSize);
+        ctx.stroke();
+      }
+    }
+
+    function drawArrow(fromX, fromY, toX, toY, color) {
+      const currentNum = history[currentStep]?.number;
+      if (currentNum === 1 || currentNum === n * n) color = '#C0C0C0';
+      const headLength = 10;
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      const angle = Math.atan2(dy, dx);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo((fromX + 0.5) * cellSize, (fromY + 0.5) * cellSize);
+      ctx.lineTo((toX + 0.5) * cellSize, (toY + 0.5) * cellSize);
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo((toX + 0.5) * cellSize, (toY + 0.5) * cellSize);
+      ctx.lineTo((toX + 0.5) * cellSize - headLength * Math.cos(angle - Math.PI / 7),
+                 (toY + 0.5) * cellSize - headLength * Math.sin(angle - Math.PI / 7));
+      ctx.lineTo((toX + 0.5) * cellSize - headLength * Math.cos(angle + Math.PI / 7),
+                 (toY + 0.5) * cellSize - headLength * Math.sin(angle + Math.PI / 7));
+      ctx.fill();
+    }
+
+    function getRandomPattern() {
+      const patterns = [
+        (ctx, x, y, size) => ctx.fillRect(x, y, size, size),
+        (ctx, x, y, size) => {
+          ctx.beginPath();
+          ctx.arc(x + size / 2, y + size / 2, size / 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        },
+        (ctx, x, y, size) => {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + size, y);
+          ctx.lineTo(x + size, y + size);
+          ctx.closePath();
+          ctx.fill();
+        }
+      ];
+      return patterns[Math.floor(Math.random() * patterns.length)];
+    }
+
+    function highlightCells(current) {
+      ctx.fillStyle = 'rgba(76, 175, 80, 0.3)';
+      getRandomPattern()(ctx, current.position.j * cellSize, current.position.i * cellSize, cellSize);
+      if (current.previous) {
+        ctx.fillStyle = 'rgba(33, 150, 243, 0.2)';
+        getRandomPattern()(ctx, current.previous.j * cellSize, current.previous.i * cellSize, cellSize);
+      }
+    }
+
+    function drawNumbers(step) {
+      ctx.font = `${cellSize * 0.4}px Vazir`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i <= step; i++) {
+        const item = history[i];
+        if (!item) continue;
+        ctx.fillStyle =
+          item.number === 1 ? '#FFC107' :
+          item.number === n * n ? '#FF8C00' : '#fff';
+        ctx.fillText(
+          item.number,
+          (item.position.j + 0.5) * cellSize,
+          (item.position.i + 0.5) * cellSize
+        );
+      }
+    }
+
+    function confirmReset() {
+      if (confirm("آیا کاملاً مطمئن هستید که می‌خواهید بازنشانی کنید؟")) {
+        clearTimeout(animationId);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById("matrixSize").value = '5';
+        history = [];
+        currentStep = 0;
+      }
+    }
+
+    window.onload = initCanvas;
+    window.onresize = initCanvas;
+  </script>
+</body>
+</html>
